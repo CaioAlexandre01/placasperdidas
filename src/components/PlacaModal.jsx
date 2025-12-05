@@ -62,6 +62,13 @@ export default function PlacaModal({ id, onClose }) {
               )}
             </div>
 
+            {/* mensagem de apoio ao projeto */}
+            <p className="text-sm text-gray-600 text-center mb-2">Fico feliz que sua placa tenha sido encontrada! Se o site te ajudou e você quiser ajudar a manter o projeto no ar, qualquer contribuição é bem-vinda. 💙</p>
+
+            <p className="text-sm text-center font-bold text-gray-800 mb-6">
+               <p className="text-sm text-center font-semibold text-gray-800 mb-6">Chave Pix: placasperdidasoficial@gmail.com</p>
+            </p>
+
             <button onClick={onClose} className="w-full bg-[#003298] text-white px-4 py-2 rounded hover:opacity-90 text-lg">
               Fechar
             </button>
