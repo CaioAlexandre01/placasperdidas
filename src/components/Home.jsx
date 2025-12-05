@@ -6,7 +6,7 @@ import { collection, addDoc, getDocs, query, where } from "firebase/firestore";
 import placaImage from "../assets/placa-mercosul.png";
 import { AnimatePresence, motion } from "framer-motion";
 import PlacaModal from "./PlacaModal";
-import { FaInstagram, FaTwitter, FaLinkedin, FaFacebook, FaEnvelope, FaPhone, FaTelegramPlane } from "react-icons/fa";
+import { FaSearch, FaWhatsapp, FaEnvelope } from "react-icons/fa";
 
 export default function Home() {
   const [placas, setPlacas] = useState([]);
