@@ -1,4 +1,3 @@
-// src/components/PlacaModal.jsx
 import { useEffect, useState } from "react";
 import { db } from "../services/firebase-config";
 import { doc, getDoc } from "firebase/firestore";
@@ -20,8 +19,6 @@ export default function PlacaModal({ id, onClose }) {
     })();
   }, [id]);
 
-  const mask = (str = "") => str.replace(/./g, "*");
-
   if (!id) return null;
 
   return (
@@ -36,16 +33,16 @@ export default function PlacaModal({ id, onClose }) {
           <p className="text-center py-8">Carregando...</p>
         ) : dados ? (
           <>
-            {/* título de pagamento */}
-            <h2 className="text-center text-xl font-bold mb-4">Realize o pagamento para visualizar as informações</h2>
+            <h2 className="text-center text-xl font-bold mb-4">Informações da Placa</h2>
 
-            {/* dados mascarados */}
+            <p className="text-sm text-gray-600 text-center mb-4">Use os dados abaixo para entrar em contato diretamente.</p>
+
             <div className="space-y-2 text-sm text-gray-700 mb-6">
               <p>
-                <strong className="text-[#003298]">Nome:</strong> {mask(dados.nome)}
+                <strong className="text-[#003298]">Nome:</strong> {dados.nome}
               </p>
               <p>
-                <strong className="text-[#003298]">Telefone:</strong> {mask(dados.telefone)}
+                <strong className="text-[#003298]">Telefone:</strong> {dados.telefone}
               </p>
               <p>
                 <strong className="text-[#003298]">Placa:</strong> {dados.placa}
@@ -65,15 +62,8 @@ export default function PlacaModal({ id, onClose }) {
               )}
             </div>
 
-            {/* botão de pagamento */}
-            <button
-              onClick={() => {
-                /* TODO: implementar fluxo de pagamento */
-                alert("Redirecionando para pagamento...");
-              }}
-              className="w-full bg-[#003298] text-white px-4 py-2 rounded hover:opacity-90 text-lg"
-            >
-              Realizar pagamento
+            <button onClick={onClose} className="w-full bg-[#003298] text-white px-4 py-2 rounded hover:opacity-90 text-lg">
+              Fechar
             </button>
           </>
         ) : (

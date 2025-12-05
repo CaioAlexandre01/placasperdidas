@@ -1,4 +1,3 @@
-// src/components/Home.jsx
 import { useState } from "react";
 import { UserPlus, Search, Bell, Globe } from "lucide-react";
 import { db } from "../services/firebase-config";
@@ -35,7 +34,10 @@ export default function Home() {
     const colRef = collection(db, "placas");
     const q = query(colRef, where("placa", "==", busca));
     const snapshot = await getDocs(q);
-    const resultados = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    const resultados = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
     setPlacas(resultados);
     if (resultados.length === 0) setShowNotFound(true);
   };
@@ -49,7 +51,14 @@ export default function Home() {
     try {
       await addDoc(collection(db, "placas"), dados);
       alert("Cadastro salvo com sucesso!");
-      setDados({ nome: "", telefone: "", placa: "", tipo: "carro", cidade: "", estado: "" });
+      setDados({
+        nome: "",
+        telefone: "",
+        placa: "",
+        tipo: "carro",
+        cidade: "",
+        estado: "",
+      });
       setView("buscar");
     } catch (err) {
       console.error("Erro ao salvar:", err);
@@ -74,33 +83,52 @@ export default function Home() {
             Ajude Quem Precisa
           </h1>
           <p className="text-gray-700 mb-6 max-w-md drop-shadow-sm">Plataforma para conectar quem perdeu ou encontrou uma placa de veículo.</p>
-          <div className="flex flex-col items-center md:w-3/4 md:flex-row md:items-start gap-4">
-            <button onClick={() => setView("buscar")} className={`w-full max-w-xs px-1 py-3 rounded ${view === "buscar" ? "bg-[#003298] text-white" : "border border-[#003298] text-[#003298]"}`}>
-              Buscar Placa Perdida
-            </button>
-            <button onClick={() => setView("cadastrar")} className={`w-full max-w-xs px-1 py-3 rounded ${view === "cadastrar" ? "bg-[#003298] text-white" : "border border-[#003298] text-[#003298]"}`}>
-              Cadastrar Placa Perdida
-            </button>
+
+          <div className="flex flex-col items-center md:items-start gap-2">
+            <span className="text-xs uppercase tracking-wide text-gray-500">Escolha uma opção abaixo</span>
+
+            <div className="inline-flex rounded-lg border border-[#003298] bg-white overflow-hidden">
+              <button onClick={() => setView("buscar")} className={`px-4 py-2 text-sm font-semibold transition min-w-[150px] ${view === "buscar" ? "bg-[#003298] text-white shadow-sm" : "text-[#003298] bg-white hover:bg-[#e7ecff]"}`}>
+                Buscar Placa Perdida
+              </button>
+              <button onClick={() => setView("cadastrar")} className={`px-4 py-2 text-sm font-semibold transition min-w-[170px] ${view === "cadastrar" ? "bg-[#003298] text-white shadow-sm" : "text-[#003298] bg-white hover:bg-[#e7ecff]"}`}>
+                Cadastrar Placa Perdida
+              </button>
+            </div>
+
+            <p className="text-xs text-gray-500 mt-1">
+              Você está em: <span className="font-semibold">{view === "buscar" ? "Buscar placa perdida" : "Cadastrar placa perdida"}</span>
+            </p>
           </div>
         </div>
+
         <div className="hidden md:flex md:w-1/2 justify-end">
           <img src={placaImage} alt="Placa Mercosul" className="w-80 drop-shadow-xl" />
         </div>
       </section>
 
       {/* SEARCH / REGISTER */}
-      <AnimatePresence exitBeforeEnter>
+      <AnimatePresence mode="wait">
         {view === "buscar" ? (
           <motion.section key="buscar" initial="hidden" animate="visible" exit="exit" variants={variants} transition={{ duration: 0.3 }} className="py-16 px-6 max-w-xl mx-auto text-center">
-            <h2 className="text-2xl font-semibold mb-4 drop-shadow">Buscar Placa</h2>
+            <h2 className="text-2xl font-semibold mb-2 drop-shadow">Buscar Placa</h2>
+            <p className="text-sm text-gray-600 mb-6">
+              Você está na opção <span className="font-semibold">Buscar placa perdida</span>. Digite a placa abaixo para verificar se já foi encontrada.
+            </p>
+
             <input type="text" value={busca} onChange={(e) => setBusca(e.target.value.toUpperCase())} placeholder="ABC1D23" pattern="[A-Z]{3}[0-9][A-Z0-9][0-9]{2}" title="Formato: ABC1D23" required className="border border-gray-300 px-6 py-3 rounded w-full text-black text-lg mb-4 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#003298] uppercase" />
             <button onClick={handleBuscar} className="bg-[#003298] text-white px-6 py-3 w-full rounded hover:opacity-90 text-lg shadow-md">
               Buscar
             </button>
+
             {placas.length > 0 && (
               <ul className="mt-8 space-y-4 text-left">
                 {placas.map((p) => (
                   <li key={p.id} className="border border-[#003298] rounded p-4 hover:bg-[#f0f4ff] cursor-pointer transition" onClick={() => setModalId(p.id)}>
+                    <p className="inline-block bg-green-100 text-green-700 text-xs font-semibold px-3 py-1 rounded-full mb-2">PLACA ENCONTRADA!</p>
+
+                    <p className="text-sm text-[#003298] font-semibold mb-4">Clique para ver mais detalhes</p>
+
                     <p>
                       <strong>Placa:</strong> {p.placa}
                     </p>
@@ -117,17 +145,48 @@ export default function Home() {
           </motion.section>
         ) : (
           <motion.section key="cadastrar" initial="hidden" animate="visible" exit="exit" variants={variants} transition={{ duration: 0.3 }} className="py-16 px-6 max-w-3xl mx-auto">
-            <h2 className="text-2xl font-semibold mb-4 drop-shadow">Cadastrar Placa</h2>
+            <h2 className="text-2xl font-semibold mb-2 drop-shadow">Cadastrar Placa</h2>
+            <p className="text-sm text-gray-600 mb-6">
+              Você está na opção <span className="font-semibold">Cadastrar placa perdida</span>. Preencha os dados para que o dono consiga falar com você.
+            </p>
+
             <form onSubmit={handleSubmit} className="grid gap-4">
               <input type="text" placeholder="Nome completo" value={dados.nome} onChange={(e) => setDados({ ...dados, nome: e.target.value })} className="focus:outline-none focus:ring-2 focus:ring-[#003298] border border-gray-300 px-4 py-2 rounded text-black" required />
               <input type="tel" placeholder="Telefone (EX: (21) 99999-9999)" value={dados.telefone} onChange={(e) => setDados({ ...dados, telefone: e.target.value })} className="focus:outline-none focus:ring-2 focus:ring-[#003298] border border-gray-300 px-4 py-2 rounded text-black" required />
-              <input type="text" placeholder="ABC1D23" value={dados.placa} onChange={(e) => setDados({ ...dados, placa: e.target.value.toUpperCase() })} maxLength={7} pattern="[A-Z]{3}[0-9][A-Z0-9][0-9]{2}" title="Formato: ABC1D23" required className="border border-gray-300 px-4 py-2 rounded text-black focus:outline-none focus:ring-2 focus:ring-[#003298]" />
-              <select value={dados.tipo} onChange={(e) => setDados({ ...dados, tipo: e.target.value })} className=" focus:outline-none focus:ring-2 focus:ring-[#003298] border border-gray-300 px-4 py-2 rounded text-black">
+              <input
+                type="text"
+                placeholder="ABC1D23"
+                value={dados.placa}
+                onChange={(e) =>
+                  setDados({
+                    ...dados,
+                    placa: e.target.value.toUpperCase(),
+                  })
+                }
+                maxLength={7}
+                pattern="[A-Z]{3}[0-9][A-Z0-9][0-9]{2}"
+                title="Formato: ABC1D23"
+                required
+                className="border border-gray-300 px-4 py-2 rounded text-black focus:outline-none focus:ring-2 focus:ring-[#003298]"
+              />
+              <select value={dados.tipo} onChange={(e) => setDados({ ...dados, tipo: e.target.value })} className="focus:outline-none focus:ring-2 focus:ring-[#003298] border border-gray-300 px-4 py-2 rounded text-black">
                 <option value="carro">Carro</option>
                 <option value="moto">Moto</option>
               </select>
               <input type="text" placeholder="Cidade" value={dados.cidade} onChange={(e) => setDados({ ...dados, cidade: e.target.value })} className="focus:outline-none focus:ring-2 focus:ring-[#003298] border border-gray-300 px-4 py-2 rounded text-black" />
-              <input type="text" placeholder="Estado (ex: RJ)" value={dados.estado} onChange={(e) => setDados({ ...dados, estado: e.target.value.toUpperCase() })} maxLength={2} className="focus:outline-none focus:ring-2 focus:ring-[#003298] border border-gray-300 px-4 py-2 rounded text-black uppercase" />
+              <input
+                type="text"
+                placeholder="Estado (ex: RJ)"
+                value={dados.estado}
+                onChange={(e) =>
+                  setDados({
+                    ...dados,
+                    estado: e.target.value.toUpperCase(),
+                  })
+                }
+                maxLength={2}
+                className="focus:outline-none focus:ring-2 focus:ring-[#003298] border border-gray-300 px-4 py-2 rounded text-black uppercase"
+              />
               <button type="submit" className="bg-[#003298] text-white px-4 py-2 rounded hover:opacity-90">
                 Cadastrar
               </button>
