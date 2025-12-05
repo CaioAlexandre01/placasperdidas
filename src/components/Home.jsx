@@ -362,7 +362,7 @@ export default function Home() {
               bem-vinda. 💙
             </p>
             <p className="text-sm text-center font-semibold text-gray-800 mb-4">
-              Chave Pix:{" "}
+              Chave Pix:
               <span className="break-all">
                 placasperdidasoficial@gmail.com
               </span>
@@ -503,12 +503,14 @@ export default function Home() {
               quiser ajudar a manter o projeto no ar, qualquer contribuição é
               bem-vinda. 💙
             </p>
-            <p className="text-sm font-semibold text-gray-800">
-              Chave Pix:{" "}
-              <span className="break-all">
-                placasperdidasoficial@gmail.com
-              </span>
-            </p>
+<p className="text-sm font-semibold text-gray-800">
+  Chave Pix:
+  <br />
+  <span className="break-all">
+    placasperdidasoficial@gmail.com
+  </span>
+</p>
+
           </div>
         </div>
       </section>
