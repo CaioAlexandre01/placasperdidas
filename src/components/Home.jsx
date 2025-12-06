@@ -113,7 +113,7 @@ export default function Home() {
                     : "text-[#003298] bg-white hover:bg-[#e7ecff]"
                 }`}
               >
-                Buscar Placa Perdida
+                Perdi minha placa
               </button>
               <button
                 onClick={() => setView("cadastrar")}
@@ -123,7 +123,7 @@ export default function Home() {
                     : "text-[#003298] bg-white hover:bg-[#e7ecff]"
                 }`}
               >
-                Cadastrar Placa Perdida
+                Encontrei uma placa
               </button>
             </div>
 
@@ -230,7 +230,7 @@ export default function Home() {
             </h2>
             <p className="text-sm text-gray-600 mb-6">
               Você está na opção{" "}
-              <span className="font-semibold">Cadastrar placa perdida</span>.
+              <span className="font-semibold">Encontrei uma placa</span>.
               Preencha os dados para que o dono consiga falar com você.
             </p>
 
@@ -536,7 +536,7 @@ export default function Home() {
               </li>
               <li>
                 <a href="#cadastro" className="hover:underline">
-                  Cadastrar Placa
+                  Cadastrar placa encontrada
                 </a>
               </li>
             </ul>
