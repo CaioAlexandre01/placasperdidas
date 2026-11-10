@@ -2,7 +2,7 @@ import { useState } from "react";
 import { UserPlus, Search, Bell, Globe } from "lucide-react";
 import { apiFetch } from "../services/api";
 import placaImage from "../assets/placa-mercosul.png";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion as Motion } from "framer-motion";
 import PlacaModal from "./PlacaModal";
 import { FaEnvelope } from "react-icons/fa";
 
@@ -126,7 +126,7 @@ export default function Home() {
       {/* SEARCH / REGISTER */}
       <AnimatePresence mode="wait">
         {view === "buscar" ? (
-          <motion.section key="buscar" initial="hidden" animate="visible" exit="exit" variants={variants} transition={{ duration: 0.3 }} className="py-16 px-6 max-w-xl mx-auto text-center">
+          <Motion.section key="buscar" initial="hidden" animate="visible" exit="exit" variants={variants} transition={{ duration: 0.3 }} className="py-16 px-6 max-w-xl mx-auto text-center">
             <h2 className="text-2xl font-semibold mb-2 drop-shadow">Buscar Placa</h2>
             <p className="text-sm text-gray-600 mb-6">
               Você está na opção <span className="font-semibold">Buscar placa perdida</span>. Digite a placa abaixo para verificar se já foi encontrada.
@@ -163,9 +163,9 @@ export default function Home() {
                 ))}
               </ul>
             )}
-          </motion.section>
+          </Motion.section>
         ) : (
-          <motion.section key="cadastrar" initial="hidden" animate="visible" exit="exit" variants={variants} transition={{ duration: 0.3 }} className="py-16 px-6 max-w-3xl mx-auto">
+          <Motion.section key="cadastrar" initial="hidden" animate="visible" exit="exit" variants={variants} transition={{ duration: 0.3 }} className="py-16 px-6 max-w-3xl mx-auto">
             <h2 className="text-2xl font-semibold mb-2 drop-shadow">Cadastrar Placa</h2>
             <p className="text-sm text-gray-600 mb-6">
               Você está na opção <span className="font-semibold">Encontrei uma placa</span>. Preencha os dados para que o dono consiga falar com você.
@@ -222,7 +222,7 @@ export default function Home() {
                 {busy ? "Cadastrando..." : "Cadastrar"}
               </button>
             </form>
-          </motion.section>
+          </Motion.section>
         )}
       </AnimatePresence>
 
