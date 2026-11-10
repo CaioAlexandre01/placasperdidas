@@ -1,80 +1,85 @@
 # Placas Perdidas
 
-React 19 + Vite + Tailwind + Firebase Firestore, hospedado na Vercel.
+Projeto em React 19 + Vite + Tailwind, com **Firebase já existente** (`placasperdidas-f0bcd`) e Vercel.
 
-## Desbloqueio de contatos via Pix (R$ 5,00)
+## Novo fluxo: desbloqueio manual por Pix de R$ 5,00
 
-A busca exibe placa, tipo e cidade, mas **nunca envia nome ou telefone completos ao navegador**. O endpoint `/api/placas/search` usa o Firebase Admin SDK no servidor e devolve somente dados públicos e máscaras. Após pagamento Pix de R$ 5,00 no Asaas e confirmação por webhook autenticado, `/api/placas/contact` libera os contatos para a sessão Firebase autenticada que pagou.
+**Não há gateway, Asaas nem webhook financeiro.** A transferência é feita para uma **chave Pix estática**. O comprador informa quem fez o Pix e clica em **Já fiz o Pix**. A solicitação fica pendente no Firebase. O administrador **confere o recebimento real na conta** e decide **Aprovar** ou **Recusar** no painel `/admin`. Somente com a aprovação os dados de contato são disponibilizados à sessão que fez a solicitação.
 
-**Importante: o recurso não está pronto para produção só com o merge.** As credenciais, o App Check, o webhook, as regras Firestore e o lockfile precisam ser configurados e validados em preview.
+Fluxo:
 
-### 1. Dependências e testes
+1. Busca retorna placa, tipo, cidade e **máscaras** de nome e telefone, nunca os dados completos.
+2. Modal informa R$ 5,00, mostra chave Pix e formulário com nome do pagador e identificador opcional da transação.
+3. Após registrar solicitação, o site oferece **Enviar comprovante por e-mail** para `placasperdidasoficial@gmail.com`. O usuário deve **anexar o comprovante manualmente no e-mail**.
+4. No painel `/admin`, as solicitações pendentes têm protocolo, pagador, placa e identificador. O administrador só deve aprovar após conferir a transação bancária/comprovante. O clique **não significa Pix confirmado**.
+5. A aprovação gera um registro de autorização em `unlocks`; o usuário vê contato após atualizar o status (consulta periódica enquanto o modal está aberto).
+
+### Etapa 1 — Preparação local
 
 ```bash
+git pull --ff-only
 npm install
-npm test
 npm run lint
+npm test
 npm run build
+npm audit --omit=dev
 ```
 
-O `package.json` inclui `firebase-admin`. **Execute `npm install` e faça commit do `package-lock.json` gerado antes de fazer merge**. O lock anterior foi mantido sem dependências inventadas.
+Não execute `npm audit fix --force` sem avaliar quebras. O `package-lock.json` local alterado pelo npm deve ser comitado em uma etapa posterior, após os testes.
 
-### 2. Firebase
+### Etapa 2 — Mesmo Firebase, novos controles de segurança
 
-- No projeto `placasperdidas-f0bcd`, ative **Authentication > Sign-in method > Anonymous**. A identidade anônima preserva o acesso no mesmo navegador, enquanto não for apagado o armazenamento local. Se o usuário trocar de aparelho ou limpar os dados, o acesso não será recuperável sem um futuro mecanismo de conta/recuperação.
-- Ative **App Check** para Web com **reCAPTCHA v3** e registre os domínios da Vercel. Use a chave pública em `VITE_APP_CHECK_SITE_KEY`.
-- Em **Vercel > Environment Variables**, cadastre `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL` e `FIREBASE_PRIVATE_KEY` de uma conta de serviço com acesso ao Firestore. A chave privada deve preservar as quebras de linha (`\\n` também é aceito). **Nunca publicar credenciais no GitHub ou expor variáveis privadas com `VITE_`.**
-- Antes da liberação pública, publique as regras `firestore.rules` com o Firebase CLI:
-  ```bash
-  firebase deploy --only firestore:rules --project placasperdidas-f0bcd
-  ```
-- As regras negam leitura/escrita direta à coleção `placas` para todos, exceto usuários com a *custom claim* `admin: true`. Elas também negam totalmente acesso cliente a `payments`, `payment_attempts`, `unlocks` e `rate_limits`. Essas regras bloqueiam a versão antiga do site, que consultava o Firestore diretamente. **Planeje o corte de produção para evitar downtime.**
-- Para atribuir admin ao usuário existente do painel, exporte as três variáveis de conta de serviço em um terminal privado e execute:
+Você **não precisa criar outro Firebase nem outro Firestore**. O cadastro atual continua na coleção `placas`.
+
+- No Firebase Console > Authentication > Sign-in method, habilite **Anonymous** (sessões públicas para associar a compra a uma identidade). A autenticação por e-mail/senha do admin permanece.
+- No Firebase Console > App Check, configure **reCAPTCHA v3** para sua Web App; cadastre os domínios de preview e produção. Informe a chave pública no `VITE_APP_CHECK_SITE_KEY` da Vercel (e localmente, se for testar a API).
+- No Firebase Console > Configurações do projeto > Contas de serviço, gere uma **chave privada de conta de serviço**. Salve as variáveis abaixo **somente nas variáveis privadas da Vercel**, nunca no GitHub, nunca em código e nunca com prefixo `VITE_`:
+  - `FIREBASE_PROJECT_ID=placasperdidas-f0bcd`
+  - `FIREBASE_CLIENT_EMAIL=...`
+  - `FIREBASE_PRIVATE_KEY=...`
+- Na Vercel configure também `VITE_APP_CHECK_SITE_KEY` e a chave pública `VITE_PIX_KEY`. **Confirme a chave Pix real** antes de publicar. A mesma chave existia anteriormente na seção de doações do site.
+- Conceda *custom claim* de administrador ao UID **existente** do Firebase Auth:
   ```bash
   node scripts/set-admin-claim.mjs UID_DO_ADMIN
   ```
-  Faça logout/login do painel depois; não conceda admin a usuários anônimos.
-- Se o banco usa outras coleções diretamente pelo frontend em integrações externas, revise as regras antes de publicar; este projeto somente utiliza `placas` no frontend.
+  O script exige `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL` e `FIREBASE_PRIVATE_KEY` configuradas em um terminal privado. Use apenas o UID da sua conta de admin autenticada por e-mail. Faça logout/login depois para renovar o token.
+- Antes de lançar a versão nova, publique `firestore.rules` com `firebase deploy --only firestore:rules --project placasperdidas-f0bcd`.
 
-### 3. Asaas
+**Cuidado:** as novas regras bloqueiam a consulta antiga `getDocs(collection(db, "placas"))` por usuários públicos. A nova busca usa API no servidor, que filtra as informações. **Coordenar deploy e publicação das regras** para não interromper a versão em produção. Se outras aplicações acessam essa coleção diretamente, revise as regras com antecedência.
 
-- Configure `ASAAS_API_BASE_URL`, `ASAAS_API_KEY` e `ASAAS_WEBHOOK_TOKEN` **somente como variáveis privadas na Vercel**.
-- Em sandbox use `https://sandbox.asaas.com/api`. Em produção use `https://api.asaas.com`.
-- Configure o webhook do Asaas para `https://SEU-DOMINIO/api/payments/webhook`, com autenticação por token definida no painel do Asaas. O token recebido no cabeçalho `asaas-access-token` deve ser idêntico a `ASAAS_WEBHOOK_TOKEN`.
-- Selecione pelo menos `PAYMENT_RECEIVED`, `PAYMENT_CONFIRMED` e `PAYMENT_REFUNDED`; a aplicação valida o ID da cobrança, valor de R$ 5,00, forma Pix, referência externa e status antes de liberar.
-- O pagador informa nome, e-mail e CPF para emissão da cobrança. Esses dados seguem ao Asaas; o CPF **não é persistido pelo projeto** no Firestore.
-- A chave Pix da seção **Apoie o projeto** é para doação e **não libera contatos**. O único desbloqueio válido ocorre no QR Pix de cobrança gerado pelo Asaas.
+### Etapa 3 — Segurança e privacidade
 
-### 4. Registros legados e privacidade
+- **Não são apenas asteriscos no frontend.** `GET /api/placas/search` busca no servidor e responde só com dados públicos e campos mascarados.
+- `/api/placas/contact` usa Firebase Auth e só entrega contato quando `unlocks/{uid}_{plateId}` tem `status: "paid"`.
+- `/api/payments/review` e `/api/payments/pending` exigem a custom claim `admin: true` verificada no servidor. A UI também verifica a claim, mas a segurança depende do backend e das regras.
+- **Não habilite o pagamento de cadastros antigos automaticamente.** Eles não têm autorização prévia para disponibilizar contato pago. Para liberá-los, obtenha o consentimento da pessoa que os cadastrou, guarde evidência e só então adicione `consentToUnlock: true` no Firestore. Novos cadastros coletam consentimento explícito e data de autorização.
+- O recibo não é enviado nem armazenado automaticamente no Firebase: é enviado por e-mail, e você precisa conferi-lo na conta bancária antes de aprovar. Um usuário pode clicar em **Já fiz o Pix** sem ter pago; **isso nunca libera contato**.
+- Sem conta persistente, uma sessão anônima pode perder o acesso ao desbloqueio ao trocar de aparelho, limpar dados do navegador ou sair da sessão. Planeje um mecanismo futuro de recuperação antes de cobrar usuários reais.
+- Reavalie Termos de Uso, Política de Privacidade e retenção de contatos conforme a LGPD.
 
-Os registros anteriores à implementação **não possuem autorização explícita para compartilhar contatos mediante pagamento**. A busca ainda os exibe, mas o botão de pagamento fica indisponível. Para habilitar a liberação é necessário obter nova autorização do responsável pelo contato e só então marcar `consentToUnlock: true` no registro, com evidência da autorização. Não altere todos os registros em lote automaticamente.
+### Endpoints
 
-Novos cadastros exigem aceite explícito e gravam `consentAt`. Antes da monetização, prepare também uma Política de Privacidade e Termos válidos para o negócio, com regras de retenção de dados, identificação do controlador e canal de atendimento; o texto do checkbox sozinho não garante conformidade com a LGPD.
-
-### 5. Fluxos e endpoints
-
-| Endpoint | Método | Autorização | Função |
+| Endpoint | Método | Proteção | Uso |
 | --- | --- | --- | --- |
-| `/api/placas/search?placa=...` | GET | Firebase App Check | Retorna máscara e localização |
-| `/api/placas/register` | POST | App Check + Firebase Auth | Cadastro com consentimento |
-| `/api/payments/create` | POST | App Check + Firebase Auth | Cobrança de R$ 5,00 |
-| `/api/payments/status?plateId=...` | GET | App Check + Firebase Auth | Retorna status e QR Pix |
-| `/api/placas/contact?id=...` | GET | App Check + Firebase Auth | Contato somente com desbloqueio pago |
-| `/api/payments/webhook` | POST | Token secreto Asaas | Confirma pagamentos e trata estorno |
+| `/api/placas/search?placa=...` | GET | App Check | Buscar placa com informações mascaradas |
+| `/api/placas/register` | POST | App Check + Auth | Cadastro com consentimento |
+| `/api/payments/create` | POST | App Check + Auth | Registrar solicitação manual após Pix |
+| `/api/payments/status?plateId=...` | GET | App Check + Auth | Verificar aprovação ou recusa |
+| `/api/payments/pending` | GET | App Check + Auth Admin | Listar solicitações pendentes |
+| `/api/payments/review` | POST | App Check + Auth Admin | Aprovar/recusar após conferência real |
+| `/api/placas/contact?id=...` | GET | App Check + Auth + desbloqueio | Liberar contato para quem teve solicitação aprovada |
 
-O valor de cobrança é definido **exclusivamente no servidor**. IDs de usuário, IDs de pagamento e status não são confiados ao cliente. Há um limite básico de cinco cadastros e cinco tentativas de pagamento por UID anônimo por dia; para alto volume, use proteção adicional antifraude e limites por IP no gateway/WAF.
+### Checklist mínimo antes do merge
 
-### 6. Checklist de homologação
+1. Rodar lint, testes e build localmente (após puxar a branch). Revisar vulnerabilidades restantes do `npm audit`.
+2. Confirmar chave Pix real e e-mail de suporte, pois a aprovação é manual.
+3. Configurar App Check, Firebase Admin SDK na Vercel e custom claim do admin no **projeto Firebase atual**.
+4. Testar no domínio de preview: busca não retorna telefone/nome completos no DevTools; usuário público não consegue ler `placas` diretamente pelo SDK Firestore.
+5. Criar uma solicitação **sem fazer Pix** e confirmar que o contato fica bloqueado, mesmo após clicar em Já fiz o Pix.
+6. Confirmar que o administrador visualiza a solicitação, pode recusá-la e que, ao aprovar outra, apenas a sessão solicitante recupera o contato.
+7. Verificar que usuários sem claim admin não acessam ou alteram solicitações.
+8. Confirmar que cadastros antigos sem consentimento não podem ser cobrados ou desbloqueados.
+9. Definir como o comprador recuperará uma compra se trocar de navegador ou limpar a sessão anônima.
+10. Só depois publicar as regras Firestore e promover o deploy da aplicação.
 
-1. Executar `npm install` e salvar o lockfile.
-2. Usar Firebase e Asaas **sandbox/testes** e domínio de preview no App Check.
-3. Testar consulta da placa no DevTools: a resposta da busca **não pode conter `nome` ou `telefone`**.
-4. Confirmar que acessar `placas` pelo SDK cliente retorna **permission-denied** para usuário anônimo.
-5. Testar `/api/placas/contact` antes do pagamento: resposta **403**, mesmo com IDs válidos.
-6. Gerar cobrança Pix e validar um webhook real do Asaas sandbox; somente então o contato deve ser liberado.
-7. Testar webhook com token inválido, valor diferente de R$ 5,00 e pagamento falso: não deve liberar.
-8. Confirmar que cadastros legados sem consentimento não podem ser cobrados nem ter contato liberado.
-9. Testar renovação de token admin e acesso ao painel.
-10. Validar se as rotas `/api/` são resolvidas como Vercel Functions no preview; não podem retornar HTML da SPA.
-
-**Não foi executada uma cobrança real nem realizada implantação no Firebase ou na Vercel nesta branch.**
+**Importante:** a branch ainda não foi homologada ponta a ponta com Firebase real nem com Pix bancário real. O fluxo foi implementado como aprovação administrativa, não como verificação financeira automática.
