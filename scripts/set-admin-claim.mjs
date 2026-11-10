@@ -17,7 +17,7 @@ admin.initializeApp({
   }),
 });
 const user = await admin.auth().getUser(uid);
-if (user.isAnonymous) {
+if (!user.email) {
   console.error("Não conceda permissão admin a usuários anônimos.");
   process.exit(1);
 }
