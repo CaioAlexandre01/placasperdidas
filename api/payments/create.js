@@ -1,125 +1,77 @@
+import { randomBytes } from "node:crypto";
 import { db, FieldValue } from "../../server/firebase.js";
 import { method, verifyClient, fail, safeError, bodyWithinLimit, httpError } from "../../server/http.js";
-import { cleanText, digits, isValidCPF } from "../../server/validation.js";
-import { asaasRequest } from "../../server/asaas.js";
-
-const PRICE = 5;
+import { cleanText } from "../../server/validation.js";
 
 export default async function handler(req, res) {
   if (!method(req, res, "POST")) return;
-  let orderRef;
-  let attempt;
   try {
     const user = await verifyClient(req, { requireLogin: true });
     const body = bodyWithinLimit(req);
-    const id = body.plateId;
-    const name = cleanText(body.name, 100);
-    const email = cleanText(body.email, 150);
-    const cpf = digits(body.cpf);
+    const plateId = body.plateId;
+    const payerName = cleanText(body.payerName, 100);
+    const transferReference = cleanText(body.transferReference, 120);
 
-    if (typeof id !== "string" || !/^[A-Za-z0-9]{10,80}$/.test(id)) {
-      return fail(res, 400, "Placa inválida.");
+    if (typeof plateId !== "string" || !/^[A-Za-z0-9]{10,80}$/.test(plateId)) {
+      return fail(res, 400, "Registro inválido.");
     }
-    if (name.length < 3 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !isValidCPF(cpf)) {
-      return fail(res, 400, "Informe nome, e-mail e CPF válidos.");
+    if (payerName.length < 3 || body.confirmTransferred !== true) {
+      return fail(res, 400, "Informe o nome de quem pagou e confirme a transferência.");
     }
 
-    const orderId = `${user.uid}_${id}`;
-    orderRef = db.collection("payments").doc(orderId);
-    const plateRef = db.collection("placas").doc(id);
+    const orderId = `${user.uid}_${plateId}`;
+    const orderRef = db.collection("payments").doc(orderId);
+    const plateRef = db.collection("placas").doc(plateId);
     const unlockRef = db.collection("unlocks").doc(orderId);
-    const day = new Date().toISOString().slice(0, 10);
-    const counterRef = db.collection("rate_limits").doc(`payments_${user.uid}_${day}`);
+    const today = new Date().toISOString().slice(0, 10);
+    const counterRef = db.collection("rate_limits").doc(`payments_${user.uid}_${today}`);
+    const newProtocol = `PP-${randomBytes(5).toString("hex").toUpperCase()}`;
 
-    const reservation = await db.runTransaction(async (tx) => {
-      const [plate, unlock, oldOrder, counter] = await Promise.all([
-        tx.get(plateRef), tx.get(unlockRef), tx.get(orderRef), tx.get(counterRef),
+    const result = await db.runTransaction(async (tx) => {
+      const [plate, previous, unlock, counter] = await Promise.all([
+        tx.get(plateRef),
+        tx.get(orderRef),
+        tx.get(unlockRef),
+        tx.get(counterRef),
       ]);
-      if (!plate.exists) throw httpError(404, "Placa não encontrada.");
-      if (plate.data().consentToUnlock !== true) throw httpError(403, "Contato aguardando autorização.");
-      if (unlock.data()?.status === "paid") return { paid: true };
 
-      const previous = oldOrder.data();
-      if (previous?.status === "pending" && previous.paymentId) {
-        return { pending: true, paymentId: previous.paymentId, qrCode: previous.qrCode || null };
+      if (!plate.exists) throw httpError(404, "Placa não encontrada.");
+      if (plate.data().consentToUnlock !== true) {
+        throw httpError(403, "Contato aguardando autorização.");
       }
-      if (previous?.status === "creating" &&
-        previous.updatedAt?.toMillis?.() > Date.now() - 120000) {
-        throw httpError(409, "Uma cobrança está sendo criada. Tente novamente em instantes.");
+      if (unlock.data()?.status === "paid") return { status: "paid" };
+      const old = previous.data();
+      if (old?.status === "approved") return { status: "paid" };
+      if (old?.status === "pending") {
+        return { status: "pending", protocol: old.protocol };
       }
       if ((counter.data()?.count || 0) >= 5) {
-        throw httpError(429, "Limite diário de tentativas de pagamento atingido.");
+        throw httpError(429, "Limite diário de solicitações atingido.");
       }
-      const nextAttempt = (previous?.attempt || 0) + 1;
+
+      const protocol = old?.protocol || newProtocol;
       tx.set(orderRef, {
-        uid: user.uid, plateId: id, amount: PRICE, status: "creating",
-        attempt: nextAttempt, paymentId: null, qrCode: null,
+        uid: user.uid,
+        plateId,
+        placa: plate.data().placa,
+        amount: 5,
+        payerName,
+        transferReference,
+        protocol,
+        status: "pending",
+        createdAt: old?.createdAt || FieldValue.serverTimestamp(),
+        submittedAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+      tx.set(counterRef, {
+        count: FieldValue.increment(1),
         updatedAt: FieldValue.serverTimestamp(),
       }, { merge: true });
-      tx.set(counterRef, {
-        count: FieldValue.increment(1), updatedAt: FieldValue.serverTimestamp(),
-      }, { merge: true });
-      return { attempt: nextAttempt };
+      return { status: "pending", protocol };
     });
 
-    if (reservation.paid) return res.status(200).json({ status: "paid" });
-    if (reservation.pending) {
-      let qrCode = reservation.qrCode;
-      if (!qrCode) {
-        qrCode = await asaasRequest(`payments/${reservation.paymentId}/pixQrCode`);
-        await orderRef.update({ qrCode });
-      }
-      return res.status(200).json({ status: "pending", qrCode });
-    }
-
-    attempt = reservation.attempt;
-    const customer = await asaasRequest("customers", {
-      method: "POST",
-      body: JSON.stringify({ name, email, cpfCnpj: cpf }),
-    });
-    const dueDate = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
-    const payment = await asaasRequest("payments", {
-      method: "POST",
-      headers: { "Asaas-Idempotency-Key": `${orderId}-${attempt}` },
-      body: JSON.stringify({
-        customer: customer.id,
-        billingType: "PIX",
-        value: PRICE,
-        dueDate,
-        description: `Contato de placa ${id} - Placas Perdidas`,
-        externalReference: orderId,
-      }),
-    });
-    if (!payment?.id) throw new Error("Cobrança sem identificador.");
-
-    // Save payment mapping before asking for QR; needed for authenticated webhooks.
-    await db.collection("payment_attempts").doc(payment.id).set({
-      orderId, uid: user.uid, plateId: id, amount: PRICE, status: "pending",
-      createdAt: FieldValue.serverTimestamp(),
-    });
-    await orderRef.update({
-      paymentId: payment.id, status: "pending", updatedAt: FieldValue.serverTimestamp(),
-    });
-
-    let qrCode = null;
-    try {
-      qrCode = await asaasRequest(`payments/${payment.id}/pixQrCode`);
-      await orderRef.update({ qrCode });
-    } catch (error) {
-      console.error("[payment-qr]", error);
-    }
-    return res.status(201).json({ status: "pending", qrCode });
+    return res.status(200).json(result);
   } catch (error) {
-    // Only reset a failed reservation before a payment was created.
-    if (orderRef && attempt) {
-      const snapshot = await orderRef.get().catch(() => null);
-      if (snapshot?.data()?.status === "creating" &&
-          snapshot.data().attempt === attempt) {
-        await orderRef.update({
-          status: "failed", updatedAt: FieldValue.serverTimestamp(),
-        }).catch(console.error);
-      }
-    }
     return safeError(error, res);
   }
 }
