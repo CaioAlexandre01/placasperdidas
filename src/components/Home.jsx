@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { UserPlus, Search, Bell, Globe } from "lucide-react";
-import { db } from "../services/firebase-config";
-import { collection, addDoc, getDocs, query, where } from "firebase/firestore";
+import { apiFetch } from "../services/api";
 import placaImage from "../assets/placa-mercosul.png";
 import { AnimatePresence, motion } from "framer-motion";
 import PlacaModal from "./PlacaModal";
@@ -22,49 +21,57 @@ export default function Home() {
   const [modalId, setModalId] = useState(null);
   const [showNotFound, setShowNotFound] = useState(false);
   const [showSupportModal, setShowSupportModal] = useState(false);
+  const [searchError, setSearchError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [consentToUnlock, setConsentToUnlock] = useState(false);
 
   // regex Mercosul: ABC1D23
   const PLACA_REGEX = /^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$/;
 
   const handleBuscar = async () => {
-    if (!PLACA_REGEX.test(busca)) {
-      alert("Formato de placa inválido. Use ABC1D23");
+    const placa = busca.trim().toUpperCase();
+    if (!PLACA_REGEX.test(placa)) {
+      setSearchError("Formato de placa inválido. Use ABC1D23.");
       return;
     }
-    if (!busca.trim()) return;
+    setSearchError("");
     setShowNotFound(false);
-    const colRef = collection(db, "placas");
-    const q = query(colRef, where("placa", "==", busca));
-    const snapshot = await getDocs(q);
-    const resultados = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
-    setPlacas(resultados);
-    if (resultados.length === 0) setShowNotFound(true);
+    setPlacas([]);
+    setBusy(true);
+    try {
+      const { resultados } = await apiFetch(`/api/placas/search?placa=${encodeURIComponent(placa)}`);
+      setPlacas(resultados);
+      setShowNotFound(resultados.length === 0);
+    } catch (error) {
+      setSearchError(error.message);
+    } finally {
+      setBusy(false);
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!PLACA_REGEX.test(dados.placa)) {
-      alert("Formato de placa inválido. Use ABC1D23");
+    if (!PLACA_REGEX.test(dados.placa.trim().toUpperCase())) {
+      alert("Formato de placa inválido. Use ABC1D23.");
       return;
     }
+    setBusy(true);
     try {
-      await addDoc(collection(db, "placas"), dados);
+      await apiFetch("/api/placas/register", {
+        method: "POST",
+        authenticated: true,
+        body: { ...dados, consentToUnlock },
+      });
       alert("Cadastro salvo com sucesso!");
       setDados({
-        nome: "",
-        telefone: "",
-        placa: "",
-        tipo: "carro",
-        cidade: "",
-        estado: "",
+        nome: "", telefone: "", placa: "", tipo: "carro", cidade: "", estado: "",
       });
+      setConsentToUnlock(false);
       setView("buscar");
-    } catch (err) {
-      console.error("Erro ao salvar:", err);
-      alert("Falha ao salvar dados.");
+    } catch (error) {
+      alert(error.message);
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -126,27 +133,32 @@ export default function Home() {
             </p>
 
             <input type="text" value={busca} onChange={(e) => setBusca(e.target.value.toUpperCase())} placeholder="ABC1D23" pattern="[A-Z]{3}[0-9][A-Z0-9][0-9]{2}" title="Formato: ABC1D23" required className="border border-gray-300 px-6 py-3 rounded w-full text-black text-lg mb-4 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#003298] uppercase" />
-            <button onClick={handleBuscar} className="bg-[#003298] text-white px-6 py-3 w-full rounded hover:opacity-90 text-lg shadow-md">
-              Buscar
+            <button onClick={handleBuscar} disabled={busy} className="bg-[#003298] text-white px-6 py-3 w-full rounded hover:opacity-90 text-lg shadow-md disabled:opacity-50">
+              {busy ? "Buscando..." : "Buscar"}
             </button>
+            {searchError && <p role="alert" className="text-red-600 text-sm mt-3">{searchError}</p>}
 
             {placas.length > 0 && (
               <ul className="mt-8 space-y-4 text-left">
                 {placas.map((p) => (
-                  <li key={p.id} className="border border-[#003298] rounded p-4 hover:bg-[#f0f4ff] cursor-pointer transition" onClick={() => setModalId(p.id)}>
-                    <p className="inline-block bg-green-100 text-green-700 text-xs font-semibold px-3 py-1 rounded-full mb-2">PLACA ENCONTRADA!</p>
-
-                    <p className="text-sm text-[#003298] font-semibold mb-4">Clique para ver mais detalhes</p>
-
-                    <p>
-                      <strong>Placa:</strong> {p.placa}
-                    </p>
-                    <p>
-                      <strong>Tipo:</strong> {p.tipo}
-                    </p>
-                    <p>
-                      <strong>Local:</strong> {p.cidade} - {p.estado}
-                    </p>
+                  <li key={p.id}>
+                    <button
+                      type="button"
+                      onClick={() => setModalId(p.id)}
+                      className="w-full text-left border border-[#003298] rounded-lg p-4 hover:bg-[#f0f4ff] transition focus-visible:outline-2 focus-visible:outline-[#003298]"
+                    >
+                      <span className="inline-block bg-green-100 text-green-700 text-xs font-semibold px-3 py-1 rounded-full mb-3">PLACA ENCONTRADA!</span>
+                      <p className="text-lg font-bold text-[#003298] mb-2">{p.placa}</p>
+                      <div className="space-y-1 text-sm text-gray-700">
+                        <p><strong>Nome:</strong> {p.nomeMascarado}</p>
+                        <p><strong>Telefone:</strong> {p.telefoneMascarado}</p>
+                        <p><strong>Tipo:</strong> {p.tipo}</p>
+                        <p><strong>Local:</strong> {p.cidade} - {p.estado}</p>
+                      </div>
+                      <p className="mt-4 text-sm font-semibold text-[#003298]">
+                        {p.unlockAvailable ? "🔒 Ver contato · R$ 5,00" : "🔒 Contato aguardando autorização"}
+                      </p>
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -196,8 +208,18 @@ export default function Home() {
                 maxLength={2}
                 className="focus:outline-none focus:ring-2 focus:ring-[#003298] border border-gray-300 px-4 py-2 rounded text-black uppercase"
               />
-              <button type="submit" className="bg-[#003298] text-white px-4 py-2 rounded hover:opacity-90">
-                Cadastrar
+              <label className="flex items-start gap-3 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  className="mt-1 accent-[#003298]"
+                  checked={consentToUnlock}
+                  onChange={(event) => setConsentToUnlock(event.target.checked)}
+                  required
+                />
+                <span>Autorizo que meu nome e telefone sejam disponibilizados a quem pagar R$ 5,00 para obter o contato e recuperar esta placa. Entendo que o site compartilhará esses dados após a confirmação do pagamento.</span>
+              </label>
+              <button type="submit" disabled={busy || !consentToUnlock} className="bg-[#003298] text-white px-4 py-2 rounded hover:opacity-90 disabled:opacity-50">
+                {busy ? "Cadastrando..." : "Cadastrar"}
               </button>
             </form>
           </motion.section>
@@ -219,7 +241,7 @@ export default function Home() {
       {/* DETAILS MODAL */}
       {modalId && (
         <PlacaModal
-          id={modalId}
+          placa={placas.find((p) => p.id === modalId)}
           onClose={() => {
             setModalId(null);
             handleBuscar();
