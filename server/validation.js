@@ -44,5 +44,5 @@ export function isValidCPF(value) {
 
 export function cleanText(value, max = 100) {
   if (typeof value !== "string") return "";
-  return value.trim().replace(/[\u0000-\u001F\u007F]/g, "").slice(0, max);
+  return value.trim().split("").filter((character) => { const code = character.charCodeAt(0); return code >= 32 && code !== 127; }).join("").slice(0, max);
 }
