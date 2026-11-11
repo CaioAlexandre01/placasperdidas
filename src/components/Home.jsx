@@ -23,7 +23,6 @@ export default function Home() {
   const [showSupportModal, setShowSupportModal] = useState(false);
   const [searchError, setSearchError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [consentToUnlock, setConsentToUnlock] = useState(false);
 
   // regex Mercosul: ABC1D23
   const PLACA_REGEX = /^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$/;
@@ -55,18 +54,21 @@ export default function Home() {
       alert("Formato de placa inválido. Use ABC1D23.");
       return;
     }
+    // Mantém o formulário original, com autorização clara apenas ao confirmar o envio.
+    if (!window.confirm("Seu nome e telefone poderão ser compartilhados com quem solicitar o contato para recuperar a placa. Deseja cadastrar?")) {
+      return;
+    }
     setBusy(true);
     try {
       await apiFetch("/api/placas/register", {
         method: "POST",
         authenticated: true,
-        body: { ...dados, consentToUnlock },
+        body: { ...dados, consentToUnlock: true },
       });
       alert("Cadastro salvo com sucesso!");
       setDados({
         nome: "", telefone: "", placa: "", tipo: "carro", cidade: "", estado: "",
       });
-      setConsentToUnlock(false);
       setView("buscar");
     } catch (error) {
       alert(error.message);
@@ -141,24 +143,18 @@ export default function Home() {
             {placas.length > 0 && (
               <ul className="mt-8 space-y-4 text-left">
                 {placas.map((p) => (
-                  <li key={p.id}>
-                    <button
-                      type="button"
-                      onClick={() => setModalId(p.id)}
-                      className="w-full text-left border border-[#003298] rounded-lg p-4 hover:bg-[#f0f4ff] transition focus-visible:outline-2 focus-visible:outline-[#003298]"
-                    >
-                      <span className="inline-block bg-green-100 text-green-700 text-xs font-semibold px-3 py-1 rounded-full mb-3">PLACA ENCONTRADA!</span>
-                      <p className="text-lg font-bold text-[#003298] mb-2">{p.placa}</p>
-                      <div className="space-y-1 text-sm text-gray-700">
-                        <p><strong>Nome:</strong> {p.nomeMascarado}</p>
-                        <p><strong>Telefone:</strong> {p.telefoneMascarado}</p>
-                        <p><strong>Tipo:</strong> {p.tipo}</p>
-                        <p><strong>Local:</strong> {p.cidade} - {p.estado}</p>
-                      </div>
-                      <p className="mt-4 text-sm font-semibold text-[#003298]">
-                        {p.unlockAvailable ? "🔒 Ver contato · R$ 5,00" : "🔒 Contato aguardando autorização"}
-                      </p>
-                    </button>
+                  <li
+                    key={p.id}
+                    className="border border-[#003298] rounded p-4 hover:bg-[#f0f4ff] cursor-pointer transition"
+                    onClick={() => setModalId(p.id)}
+                  >
+                    <p className="inline-block bg-green-100 text-green-700 text-xs font-semibold px-3 py-1 rounded-full mb-2">PLACA ENCONTRADA!</p>
+                    <p className="text-sm text-[#003298] font-semibold mb-4">
+                      {p.unlockAvailable ? "Clique para ver o contato · R$ 5,00" : "Clique para ver mais detalhes"}
+                    </p>
+                    <p><strong>Placa:</strong> {p.placa}</p>
+                    <p><strong>Tipo:</strong> {p.tipo}</p>
+                    <p><strong>Local:</strong> {p.cidade} - {p.estado}</p>
                   </li>
                 ))}
               </ul>
@@ -208,17 +204,7 @@ export default function Home() {
                 maxLength={2}
                 className="focus:outline-none focus:ring-2 focus:ring-[#003298] border border-gray-300 px-4 py-2 rounded text-black uppercase"
               />
-              <label className="flex items-start gap-3 text-sm text-gray-700">
-                <input
-                  type="checkbox"
-                  className="mt-1 accent-[#003298]"
-                  checked={consentToUnlock}
-                  onChange={(event) => setConsentToUnlock(event.target.checked)}
-                  required
-                />
-                <span>Autorizo que meu nome e telefone sejam disponibilizados a quem pagar R$ 5,00 para obter o contato e recuperar esta placa. Entendo que o site compartilhará esses dados após a confirmação do pagamento.</span>
-              </label>
-              <button type="submit" disabled={busy || !consentToUnlock} className="bg-[#003298] text-white px-4 py-2 rounded hover:opacity-90 disabled:opacity-50">
+              <button type="submit" disabled={busy} className="bg-[#003298] text-white px-4 py-2 rounded hover:opacity-90 disabled:opacity-50">
                 {busy ? "Cadastrando..." : "Cadastrar"}
               </button>
             </form>
