@@ -22,6 +22,7 @@ export default async function handler(req, res) {
     return res.status(200).json({
       status: data.status === "approved" ? "pending" : data.status,
       protocol: data.protocol || null,
+      payerName: data.payerName || "",
     });
   } catch (error) {
     return safeError(error, res);
