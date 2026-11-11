@@ -24,7 +24,7 @@ export default async function handler(req, res) {
       return fail(res, 400, "É necessário autorizar a disponibilização do contato.");
     }
 
-    // Limit spam per anonymous account; App Check is also mandatory.
+    // Limite básico por conta anônima. Não substitui proteção avançada contra bots.
     const day = new Date().toISOString().slice(0, 10);
     const counterRef = db.collection("rate_limits").doc(`register_${user.uid}_${day}`);
     await db.runTransaction(async (tx) => {
