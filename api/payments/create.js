@@ -43,7 +43,7 @@ export default async function handler(req, res) {
       const old = previous.data();
       if (old?.status === "approved") return { status: "paid" };
       if (old?.status === "pending") {
-        return { status: "pending", protocol: old.protocol };
+        return { status: "pending", protocol: old.protocol, payerName: old.payerName };
       }
       if ((counter.data()?.count || 0) >= 5) {
         throw httpError(429, "Limite diário de solicitações atingido.");
