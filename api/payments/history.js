@@ -16,12 +16,13 @@ export default async function handler(req, res) {
     const approved = payments.where("status", "==", "approved");
     const pending = payments.where("status", "==", "pending");
 
-    const [approvedStats, pendingStats, latest] = await Promise.all([
+    const [approvedStats, pendingStats, unlockedDocs, latest] = await Promise.all([
       approved.aggregate({
         count: AggregateField.count(),
         amount: AggregateField.sum("amount"),
       }).get(),
       pending.count().get(),
+      approved.select("plateId").get(),
       payments.orderBy("submittedAt", "desc").limit(100).get(),
     ]);
 
@@ -46,6 +47,7 @@ export default async function handler(req, res) {
       summary: {
         approvedPix: approvedData.count || 0,
         pendingPix: pendingStats.data().count || 0,
+        unlockedPlates: new Set(unlockedDocs.docs.map((doc) => doc.data().plateId).filter(Boolean)).size,
         totalApprovedCents: Math.round((approvedData.amount || 0) * 100),
       },
       transactions,
