@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
-import { X, LockKeyhole, ShieldCheck, Copy, CheckCircle2, Mail } from "lucide-react";
+import { X, LockKeyhole, ShieldCheck, Copy, CheckCircle2, MessageCircle } from "lucide-react";
 import { apiFetch } from "../services/api";
 
 const PIX_KEY = import.meta.env.VITE_PIX_KEY || "placasperdidasoficial@gmail.com";
-const SUPPORT_EMAIL = "placasperdidasoficial@gmail.com";
+const SUPPORT_WHATSAPP = "5522997170950";
 
 export default function PlacaModal({ placa, onClose }) {
   const [step, setStep] = useState("intro");
@@ -32,6 +32,7 @@ export default function PlacaModal({ placa, onClose }) {
       await readContact();
     } else if (result.status === "pending") {
       setProtocol(result.protocol || "");
+      setPayerName(result.payerName || "");
       setStep("pending");
     } else if (result.status === "rejected") {
       setProtocol(result.protocol || "");
@@ -66,6 +67,7 @@ export default function PlacaModal({ placa, onClose }) {
         await readContact();
       } else {
         setProtocol(result.protocol || "");
+        setPayerName(result.payerName || payerName);
         setStep("pending");
       }
     } catch (err) {
@@ -84,11 +86,16 @@ export default function PlacaModal({ placa, onClose }) {
     }
   };
 
-  const mailSubject = encodeURIComponent(`Comprovante Pix - ${protocol} - Placa ${placa.placa}`);
-  const mailBody = encodeURIComponent(
-    `Olá! Enviei o Pix de R$ 5,00 para desbloquear a placa ${placa.placa}.\nProtocolo: ${protocol}\n\nSegue comprovante em anexo.\n`
-  );
-  const mailLink = `mailto:${SUPPORT_EMAIL}?subject=${mailSubject}&body=${mailBody}`;
+  const whatsappText = [
+    "Olá! Solicitei o desbloqueio de uma placa no Placas Perdidas.",
+    `Placa: ${placa.placa}`,
+    `Protocolo: ${protocol}`,
+    `Nome do pagador: ${payerName || "Não informado"}`,
+    "Valor: R$ 5,00",
+    "",
+    "Vou anexar o comprovante Pix nesta conversa.",
+  ].join("\n");
+  const whatsappLink = `https://wa.me/${SUPPORT_WHATSAPP}?text=${encodeURIComponent(whatsappText)}`;
 
   return (
     <div
@@ -133,8 +140,8 @@ export default function PlacaModal({ placa, onClose }) {
               <div className="space-y-3 mb-5">
                 <p className="font-semibold text-center text-lg">Aguardando análise do Pix</p>
                 <p className="text-sm text-gray-600 text-center">Solicitação <strong>{protocol}</strong> registrada. A equipe verificará a transferência antes de liberar os dados.</p>
-                <a href={mailLink} className="flex items-center justify-center gap-2 w-full bg-[#003298] text-white py-3 rounded-lg font-semibold text-sm"><Mail size={16} /> Enviar comprovante por e-mail</a>
-                <p className="text-xs text-gray-500 text-center">Anexe o comprovante no aplicativo de e-mail. O envio não é automático.</p>
+                <a href={whatsappLink} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 w-full bg-[#003298] text-white py-3 rounded-lg font-semibold text-sm"><MessageCircle size={16} /> Enviar comprovante pelo WhatsApp</a>
+                <p className="text-xs text-gray-500 text-center">Anexe a foto ou PDF do comprovante na conversa e envie a mensagem. O anexo não é enviado automaticamente.</p>
                 <button type="button" onClick={() => checkStatus().catch((err) => setError(err.message))} className="w-full text-sm underline py-2">Atualizar status</button>
               </div>
             ) : (
