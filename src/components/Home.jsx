@@ -150,7 +150,7 @@ export default function Home() {
                   >
                     <p className="inline-block bg-green-100 text-green-700 text-xs font-semibold px-3 py-1 rounded-full mb-2">PLACA ENCONTRADA!</p>
                     <p className="text-sm text-[#003298] font-semibold mb-4">
-                      {p.unlockAvailable ? "Clique para ver o contato · R$ 5,00" : "Clique para ver mais detalhes"}
+                      {p.unlockAvailable ? "Clique para desbloquear o contato" : "Clique para ver mais detalhes"}
                     </p>
                     <p><strong>Placa:</strong> {p.placa}</p>
                     <p><strong>Tipo:</strong> {p.tipo}</p>
