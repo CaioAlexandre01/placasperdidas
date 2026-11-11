@@ -4,7 +4,7 @@ import { apiFetch } from "../services/api";
 import placaImage from "../assets/placa-mercosul.png";
 import { AnimatePresence, motion as Motion } from "framer-motion";
 import PlacaModal from "./PlacaModal";
-import { FaEnvelope } from "react-icons/fa";
+import { FaEnvelope, FaWhatsapp } from "react-icons/fa";
 
 export default function Home() {
   const [placas, setPlacas] = useState([]);
@@ -402,6 +402,17 @@ export default function Home() {
         </div>
         <div className="mt-10 text-center text-xs text-gray-500">© {new Date().getFullYear()} Placas Perdidas. Todos os direitos reservados.</div>
       </footer>
+
+      <a
+        href="https://wa.me/5522997170950?text=Ol%C3%A1%21%20Tenho%20uma%20d%C3%BAvida%20sobre%20o%20Placas%20Perdidas."
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Tirar dúvidas pelo WhatsApp"
+        title="Suporte pelo WhatsApp"
+        className="fixed bottom-5 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg transition-transform hover:scale-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#003298] md:bottom-6 md:right-6"
+      >
+        <FaWhatsapp size={28} aria-hidden="true" />
+      </a>
     </div>
   );
 }
