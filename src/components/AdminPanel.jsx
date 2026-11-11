@@ -7,7 +7,7 @@ import { apiFetch } from "../services/api";
 import {
   CarFront, ClipboardList, Wallet, LogOut, Search, Filter, ChevronDown,
   ChevronLeft, ChevronRight, MoreVertical, RefreshCw, CheckCircle2,
-  Clock3, Download, Trash2, Menu, CreditCard, CircleHelp,
+  Clock3, Download, Trash2, CreditCard, CircleHelp,
 } from "lucide-react";
 
 const auth = getAuth(app);
@@ -53,7 +53,6 @@ function Sidebar({ active, navigateTo, logout, pendingCount }) {
             <p className="text-xs text-blue-100">Admin</p>
           </div>
         </div>
-        <Menu size={21} className="md:hidden text-blue-100" aria-hidden="true" />
       </div>
       <nav aria-label="Menu administrativo" className="flex gap-1 overflow-x-auto px-3 pb-4 md:flex-col md:gap-2 md:px-3">
         {PAGES.map((page) => {
@@ -518,7 +517,7 @@ export default function AdminPanel() {
             <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <StatCard icon={CreditCard} title="Pix aprovados" value={financial?.summary?.approvedPix ?? "—"} hint="Conferidos manualmente" />
               <StatCard icon={Clock3} title="Solicitações pendentes" value={financial?.summary?.pendingPix ?? "—"} hint="Aguardando conferência" />
-              <StatCard icon={CarFront} title="Placas cadastradas" value={registros.length} hint="Total de registros" />
+              <StatCard icon={CarFront} title="Placas desbloqueadas" value={financial?.summary?.unlockedPlates ?? "—"} hint="Contatos liberados" />
               <StatCard icon={Wallet} title="Total aprovado" value={financial ? currency(financial.summary.totalApprovedCents) : "—"} hint="Somente aprovações manuais" />
             </div>
 
