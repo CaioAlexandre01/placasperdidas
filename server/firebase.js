@@ -17,5 +17,4 @@ if (!admin.apps.length) {
 
 export const db = admin.firestore();
 export const auth = admin.auth();
-export const appCheck = admin.appCheck();
 export const FieldValue = admin.firestore.FieldValue;
