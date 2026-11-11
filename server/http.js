@@ -1,4 +1,4 @@
-import { auth, appCheck } from "./firebase.js";
+import { auth } from "./firebase.js";
 
 export function noStore(res) {
   res.setHeader("Cache-Control", "no-store, max-age=0");
@@ -20,14 +20,6 @@ export function method(req, res, allowed) {
 }
 
 export async function verifyClient(req, { requireLogin = false } = {}) {
-  const appCheckToken = req.headers["x-firebase-appcheck"];
-  if (typeof appCheckToken !== "string" || !appCheckToken) {
-    const error = new Error("Verificação do aplicativo ausente.");
-    error.status = 401;
-    throw error;
-  }
-  await appCheck.verifyToken(appCheckToken);
-
   if (!requireLogin) return null;
   const authorization = req.headers.authorization || "";
   const token = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
