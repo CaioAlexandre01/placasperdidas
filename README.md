@@ -9,8 +9,8 @@ Projeto em React 19 + Vite + Tailwind, com **Firebase já existente** (`placaspe
 Fluxo:
 
 1. Busca retorna placa, tipo, cidade e **máscaras** de nome e telefone, nunca os dados completos.
-2. Modal informa R$ 5,00, mostra chave Pix e formulário com nome do pagador e identificador opcional da transação.
-3. Após registrar a solicitação, o site oferece **Enviar comprovante pelo WhatsApp** para **+55 22 99717-0950**, com mensagem preenchida automaticamente com placa, protocolo, nome do pagador e valor. O cliente precisa anexar e enviar o comprovante no WhatsApp manualmente.
+2. O modal mostra R$ 5,00, chave Pix e **somente nome de quem fez o Pix**; sem checkbox de confirmação nem identificador da transação.
+3. O botão **Já fiz o Pix · Enviar** registra a solicitação e abre o WhatsApp **+55 22 99717-0950** com mensagem pronta (placa, protocolo, nome do pagador e valor). O cliente precisa anexar e enviar o comprovante manualmente; se voltar ao site, a tela pendente permite reabrir a conversa.
 4. No painel `/admin`, as solicitações pendentes têm protocolo, pagador, placa e identificador. O administrador só deve aprovar após conferir a transação bancária/comprovante. O clique **não significa Pix confirmado**.
 5. A aprovação gera um registro de autorização em `unlocks`; o usuário vê contato após atualizar o status (consulta periódica enquanto o modal está aberto).
 
@@ -52,7 +52,7 @@ Você **não precisa criar outro Firebase nem outro Firestore**. O cadastro atua
 - **Não são apenas asteriscos no frontend.** `GET /api/placas/search` exige Firebase Auth e devolve só dados mascarados, com limite por UID.
 - `/api/placas/contact` usa Firebase Auth e só entrega contato quando `unlocks/{uid}_{plateId}` tem `status: "paid"`.
 - `/api/payments/review` e `/api/payments/pending` exigem a custom claim `admin: true` verificada no servidor. A UI também verifica a claim, mas a segurança depende do backend e das regras.
-- **Não habilite o pagamento de cadastros antigos automaticamente.** Eles não têm autorização prévia para disponibilizar contato pago. Para liberá-los, obtenha o consentimento da pessoa que os cadastrou, guarde evidência e só então adicione `consentToUnlock: true` no Firestore. Novos cadastros coletam consentimento explícito e data de autorização.
+- **Não habilite o pagamento de cadastros antigos automaticamente.** Eles não têm autorização prévia para disponibilizar contato pago. Para liberá-los, obtenha o consentimento da pessoa que os cadastrou, guarde evidência e só então adicione `consentToUnlock: true` no Firestore. Novos cadastros mantêm o formulário original **sem checkbox**: uma confirmação nativa informa que o nome e telefone poderão ser compartilhados com quem solicitar o contato para recuperar a placa. Somente após aceitar, o envio registra `consentToUnlock: true` e `consentAt`.
 - O recibo não é enviado nem armazenado automaticamente no Firebase: o cliente anexa o comprovante no WhatsApp de suporte (+55 22 99717-0950), e você precisa conferir o recebimento na conta bancária antes de aprovar. Um usuário pode clicar em **Já fiz o Pix** sem ter pago; **isso nunca libera contato**.
 - Sem conta persistente, uma sessão anônima pode perder o acesso ao desbloqueio ao trocar de aparelho, limpar dados do navegador ou sair da sessão. Planeje um mecanismo futuro de recuperação antes de cobrar usuários reais.
 - Reavalie Termos de Uso, Política de Privacidade e retenção de contatos conforme a LGPD.
@@ -71,7 +71,7 @@ Você **não precisa criar outro Firebase nem outro Firestore**. O cadastro atua
 
 ### Checklist mínimo antes do merge
 
-1. Rodar lint, testes e build localmente (após puxar a branch). Revisar vulnerabilidades restantes do `npm audit`.
+1. Rodar lint, testes e build localmente (após puxar a branch). Revisar vulnerabilidades restantes do `npm audit`. **As imagens de mockup não alteram o layout do site**: somente o modal Pix e o aviso de busca foram ajustados, mantendo o formulário de cadastro original sem checkbox.
 2. Chave Pix confirmada: `placasperdidasoficial@gmail.com`; WhatsApp de suporte: `+55 22 99717-0950`. A aprovação é manual.
 3. Configurar Firebase Admin SDK na Vercel e custom claim do admin no **projeto Firebase atual**. App Check é opcional e não foi incluído.
 4. Testar no domínio de preview: busca não retorna telefone/nome completos no DevTools; usuário público não consegue ler `placas` diretamente pelo SDK Firestore.
@@ -83,3 +83,9 @@ Você **não precisa criar outro Firebase nem outro Firestore**. O cadastro atua
 10. Só depois publicar as regras Firestore e promover o deploy da aplicação.
 
 **Importante:** a branch ainda não foi homologada ponta a ponta com Firebase real nem com Pix bancário real. O fluxo foi implementado como aprovação administrativa, não como verificação financeira automática.
+
+### Liberação em produção
+
+**Não promover a branch antes de publicar as regras do Firestore**, pois o app anterior permitia leitura direta de nome e telefone pela SDK. A versão nova mascara os dados via servidor, mas as regras devem bloquear leitura pública da coleção `placas`. No Firebase Console, abra Firestore Database > Regras, compare com `firestore.rules` e publique com cuidado; confirme admin com custom claim `admin: true`. Atenção: ao atualizar regras de Firestore, o site antigo deixará de funcionar; faça uma janela curta coordenada com o deploy da versão nova. A Vercel também precisará ter `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`, `FIREBASE_PROJECT_ID` e `VITE_PIX_KEY` em Production. Se uma chave privada foi exposta, revogue-a primeiro. Revalide a busca, a solicitação, o WhatsApp e a aprovação antes de divulgar.
+
+O aviso de tempo é uma **estimativa**: "O contato pode ser liberado em até 10 minutos após a conferência." Não é garantia de confirmação automática.
