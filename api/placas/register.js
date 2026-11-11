@@ -17,7 +17,7 @@ export default async function handler(req, res) {
     if (!validPlate(placa) || nome.length < 3 ||
         !/^\d{10,11}$/.test(digits(telefone)) ||
         !["carro", "moto"].includes(tipo) ||
-        !cidade || !/^[A-Z]{2}$/.test(estado)) {
+        (estado !== "" && !/^[A-Z]{2}$/.test(estado))) {
       return fail(res, 400, "Verifique os dados informados.");
     }
     if (body.consentToUnlock !== true) {
