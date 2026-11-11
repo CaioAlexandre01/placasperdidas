@@ -10,7 +10,7 @@ Fluxo:
 
 1. Busca retorna placa, tipo, cidade e **máscaras** de nome e telefone, nunca os dados completos.
 2. Modal informa R$ 5,00, mostra chave Pix e formulário com nome do pagador e identificador opcional da transação.
-3. Após registrar solicitação, o site oferece **Enviar comprovante por e-mail** para `placasperdidasoficial@gmail.com`. O usuário deve **anexar o comprovante manualmente no e-mail**.
+3. Após registrar a solicitação, o site oferece **Enviar comprovante pelo WhatsApp** para **+55 22 99717-0950**, com mensagem preenchida automaticamente com placa, protocolo, nome do pagador e valor. O cliente precisa anexar e enviar o comprovante no WhatsApp manualmente.
 4. No painel `/admin`, as solicitações pendentes têm protocolo, pagador, placa e identificador. O administrador só deve aprovar após conferir a transação bancária/comprovante. O clique **não significa Pix confirmado**.
 5. A aprovação gera um registro de autorização em `unlocks`; o usuário vê contato após atualizar o status (consulta periódica enquanto o modal está aberto).
 
@@ -53,7 +53,7 @@ Você **não precisa criar outro Firebase nem outro Firestore**. O cadastro atua
 - `/api/placas/contact` usa Firebase Auth e só entrega contato quando `unlocks/{uid}_{plateId}` tem `status: "paid"`.
 - `/api/payments/review` e `/api/payments/pending` exigem a custom claim `admin: true` verificada no servidor. A UI também verifica a claim, mas a segurança depende do backend e das regras.
 - **Não habilite o pagamento de cadastros antigos automaticamente.** Eles não têm autorização prévia para disponibilizar contato pago. Para liberá-los, obtenha o consentimento da pessoa que os cadastrou, guarde evidência e só então adicione `consentToUnlock: true` no Firestore. Novos cadastros coletam consentimento explícito e data de autorização.
-- O recibo não é enviado nem armazenado automaticamente no Firebase: é enviado por e-mail, e você precisa conferi-lo na conta bancária antes de aprovar. Um usuário pode clicar em **Já fiz o Pix** sem ter pago; **isso nunca libera contato**.
+- O recibo não é enviado nem armazenado automaticamente no Firebase: o cliente anexa o comprovante no WhatsApp de suporte (+55 22 99717-0950), e você precisa conferir o recebimento na conta bancária antes de aprovar. Um usuário pode clicar em **Já fiz o Pix** sem ter pago; **isso nunca libera contato**.
 - Sem conta persistente, uma sessão anônima pode perder o acesso ao desbloqueio ao trocar de aparelho, limpar dados do navegador ou sair da sessão. Planeje um mecanismo futuro de recuperação antes de cobrar usuários reais.
 - Reavalie Termos de Uso, Política de Privacidade e retenção de contatos conforme a LGPD.
 
@@ -72,7 +72,7 @@ Você **não precisa criar outro Firebase nem outro Firestore**. O cadastro atua
 ### Checklist mínimo antes do merge
 
 1. Rodar lint, testes e build localmente (após puxar a branch). Revisar vulnerabilidades restantes do `npm audit`.
-2. Confirmar chave Pix real e e-mail de suporte, pois a aprovação é manual.
+2. Chave Pix confirmada: `placasperdidasoficial@gmail.com`; WhatsApp de suporte: `+55 22 99717-0950`. A aprovação é manual.
 3. Configurar App Check, Firebase Admin SDK na Vercel e custom claim do admin no **projeto Firebase atual**.
 4. Testar no domínio de preview: busca não retorna telefone/nome completos no DevTools; usuário público não consegue ler `placas` diretamente pelo SDK Firestore.
 5. Criar uma solicitação **sem fazer Pix** e confirmar que o contato fica bloqueado, mesmo após clicar em Já fiz o Pix.
