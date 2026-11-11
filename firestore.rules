@@ -1,0 +1,33 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAdmin() {
+      return request.auth != null && request.auth.token.admin == true;
+    }
+
+    // These records contain full names and phone numbers.
+    // No public read, including anonymous sessions, is ever allowed.
+    match /placas/{plateId} {
+      allow read, write: if isAdmin();
+    }
+
+    // Orders, entitlements, abuse controls and payment mappings are server-only.
+    match /payments/{orderId} {
+      allow read, write: if false;
+    }
+    match /payment_attempts/{paymentId} {
+      allow read, write: if false;
+    }
+    match /unlocks/{unlockId} {
+      allow read, write: if false;
+    }
+    match /rate_limits/{rateId} {
+      allow read, write: if false;
+    }
+
+    // All other collections are denied by default.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

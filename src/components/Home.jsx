@@ -1,9 +1,8 @@
 import { useState } from "react";
 import { UserPlus, Search, Bell, Globe } from "lucide-react";
-import { db } from "../services/firebase-config";
-import { collection, addDoc, getDocs, query, where } from "firebase/firestore";
+import { apiFetch } from "../services/api";
 import placaImage from "../assets/placa-mercosul.png";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion as Motion } from "framer-motion";
 import PlacaModal from "./PlacaModal";
 import { FaEnvelope } from "react-icons/fa";
 
@@ -22,49 +21,59 @@ export default function Home() {
   const [modalId, setModalId] = useState(null);
   const [showNotFound, setShowNotFound] = useState(false);
   const [showSupportModal, setShowSupportModal] = useState(false);
+  const [searchError, setSearchError] = useState("");
+  const [busy, setBusy] = useState(false);
 
   // regex Mercosul: ABC1D23
   const PLACA_REGEX = /^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$/;
 
   const handleBuscar = async () => {
-    if (!PLACA_REGEX.test(busca)) {
-      alert("Formato de placa inválido. Use ABC1D23");
+    const placa = busca.trim().toUpperCase();
+    if (!PLACA_REGEX.test(placa)) {
+      setSearchError("Formato de placa inválido. Use ABC1D23.");
       return;
     }
-    if (!busca.trim()) return;
+    setSearchError("");
     setShowNotFound(false);
-    const colRef = collection(db, "placas");
-    const q = query(colRef, where("placa", "==", busca));
-    const snapshot = await getDocs(q);
-    const resultados = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
-    setPlacas(resultados);
-    if (resultados.length === 0) setShowNotFound(true);
+    setPlacas([]);
+    setBusy(true);
+    try {
+      const { resultados } = await apiFetch(`/api/placas/search?placa=${encodeURIComponent(placa)}`);
+      setPlacas(resultados);
+      setShowNotFound(resultados.length === 0);
+    } catch (error) {
+      setSearchError(error.message);
+    } finally {
+      setBusy(false);
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!PLACA_REGEX.test(dados.placa)) {
-      alert("Formato de placa inválido. Use ABC1D23");
+    if (!PLACA_REGEX.test(dados.placa.trim().toUpperCase())) {
+      alert("Formato de placa inválido. Use ABC1D23.");
       return;
     }
+    // Mantém o formulário original, com autorização clara apenas ao confirmar o envio.
+    if (!window.confirm("Seu nome e telefone poderão ser compartilhados com quem solicitar o contato para recuperar a placa. Deseja cadastrar?")) {
+      return;
+    }
+    setBusy(true);
     try {
-      await addDoc(collection(db, "placas"), dados);
+      await apiFetch("/api/placas/register", {
+        method: "POST",
+        authenticated: true,
+        body: { ...dados, consentToUnlock: true },
+      });
       alert("Cadastro salvo com sucesso!");
       setDados({
-        nome: "",
-        telefone: "",
-        placa: "",
-        tipo: "carro",
-        cidade: "",
-        estado: "",
+        nome: "", telefone: "", placa: "", tipo: "carro", cidade: "", estado: "",
       });
       setView("buscar");
-    } catch (err) {
-      console.error("Erro ao salvar:", err);
-      alert("Falha ao salvar dados.");
+    } catch (error) {
+      alert(error.message);
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -119,41 +128,40 @@ export default function Home() {
       {/* SEARCH / REGISTER */}
       <AnimatePresence mode="wait">
         {view === "buscar" ? (
-          <motion.section key="buscar" initial="hidden" animate="visible" exit="exit" variants={variants} transition={{ duration: 0.3 }} className="py-16 px-6 max-w-xl mx-auto text-center">
+          <Motion.section key="buscar" initial="hidden" animate="visible" exit="exit" variants={variants} transition={{ duration: 0.3 }} className="py-16 px-6 max-w-xl mx-auto text-center">
             <h2 className="text-2xl font-semibold mb-2 drop-shadow">Buscar Placa</h2>
             <p className="text-sm text-gray-600 mb-6">
               Você está na opção <span className="font-semibold">Buscar placa perdida</span>. Digite a placa abaixo para verificar se já foi encontrada.
             </p>
 
             <input type="text" value={busca} onChange={(e) => setBusca(e.target.value.toUpperCase())} placeholder="ABC1D23" pattern="[A-Z]{3}[0-9][A-Z0-9][0-9]{2}" title="Formato: ABC1D23" required className="border border-gray-300 px-6 py-3 rounded w-full text-black text-lg mb-4 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#003298] uppercase" />
-            <button onClick={handleBuscar} className="bg-[#003298] text-white px-6 py-3 w-full rounded hover:opacity-90 text-lg shadow-md">
-              Buscar
+            <button onClick={handleBuscar} disabled={busy} className="bg-[#003298] text-white px-6 py-3 w-full rounded hover:opacity-90 text-lg shadow-md disabled:opacity-50">
+              {busy ? "Buscando..." : "Buscar"}
             </button>
+            {searchError && <p role="alert" className="text-red-600 text-sm mt-3">{searchError}</p>}
 
             {placas.length > 0 && (
               <ul className="mt-8 space-y-4 text-left">
                 {placas.map((p) => (
-                  <li key={p.id} className="border border-[#003298] rounded p-4 hover:bg-[#f0f4ff] cursor-pointer transition" onClick={() => setModalId(p.id)}>
+                  <li
+                    key={p.id}
+                    className="border border-[#003298] rounded p-4 hover:bg-[#f0f4ff] cursor-pointer transition"
+                    onClick={() => setModalId(p.id)}
+                  >
                     <p className="inline-block bg-green-100 text-green-700 text-xs font-semibold px-3 py-1 rounded-full mb-2">PLACA ENCONTRADA!</p>
-
-                    <p className="text-sm text-[#003298] font-semibold mb-4">Clique para ver mais detalhes</p>
-
-                    <p>
-                      <strong>Placa:</strong> {p.placa}
+                    <p className="text-sm text-[#003298] font-semibold mb-4">
+                      {p.unlockAvailable ? "Clique para ver o contato · R$ 5,00" : "Clique para ver mais detalhes"}
                     </p>
-                    <p>
-                      <strong>Tipo:</strong> {p.tipo}
-                    </p>
-                    <p>
-                      <strong>Local:</strong> {p.cidade} - {p.estado}
-                    </p>
+                    <p><strong>Placa:</strong> {p.placa}</p>
+                    <p><strong>Tipo:</strong> {p.tipo}</p>
+                    <p><strong>Local:</strong> {p.cidade} - {p.estado}</p>
                   </li>
                 ))}
               </ul>
             )}
-          </motion.section>
+          </Motion.section>
         ) : (
-          <motion.section key="cadastrar" initial="hidden" animate="visible" exit="exit" variants={variants} transition={{ duration: 0.3 }} className="py-16 px-6 max-w-3xl mx-auto">
+          <Motion.section key="cadastrar" initial="hidden" animate="visible" exit="exit" variants={variants} transition={{ duration: 0.3 }} className="py-16 px-6 max-w-3xl mx-auto">
             <h2 className="text-2xl font-semibold mb-2 drop-shadow">Cadastrar Placa</h2>
             <p className="text-sm text-gray-600 mb-6">
               Você está na opção <span className="font-semibold">Encontrei uma placa</span>. Preencha os dados para que o dono consiga falar com você.
@@ -196,11 +204,11 @@ export default function Home() {
                 maxLength={2}
                 className="focus:outline-none focus:ring-2 focus:ring-[#003298] border border-gray-300 px-4 py-2 rounded text-black uppercase"
               />
-              <button type="submit" className="bg-[#003298] text-white px-4 py-2 rounded hover:opacity-90">
-                Cadastrar
+              <button type="submit" disabled={busy} className="bg-[#003298] text-white px-4 py-2 rounded hover:opacity-90 disabled:opacity-50">
+                {busy ? "Cadastrando..." : "Cadastrar"}
               </button>
             </form>
-          </motion.section>
+          </Motion.section>
         )}
       </AnimatePresence>
 
@@ -219,7 +227,7 @@ export default function Home() {
       {/* DETAILS MODAL */}
       {modalId && (
         <PlacaModal
-          id={modalId}
+          placa={placas.find((p) => p.id === modalId)}
           onClose={() => {
             setModalId(null);
             handleBuscar();
