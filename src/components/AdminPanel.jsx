@@ -7,7 +7,7 @@ import { apiFetch } from "../services/api";
 import {
   CarFront, ClipboardList, Wallet, LogOut, Search, Filter, ChevronDown,
   ChevronLeft, ChevronRight, MoreVertical, RefreshCw, CheckCircle2,
-  Clock3, Download, Trash2, Menu, X, CreditCard, CircleHelp,
+  Clock3, Download, Trash2, Menu, CreditCard, CircleHelp,
 } from "lucide-react";
 
 const auth = getAuth(app);
@@ -481,7 +481,7 @@ export default function AdminPanel() {
             {pendingError && (
               <p role="alert" className="mb-4 rounded-lg border border-red-100 bg-red-50 p-3 text-sm text-red-700">
                 {pendingError}
-                {location.hostname === "localhost" && <span> Para testar APIs locais, execute o projeto com vercel dev.</span>}
+                {window.location.hostname === "localhost" && <span> Para testar APIs locais, execute o projeto com vercel dev.</span>}
               </p>
             )}
             {loadingPending && pending.length === 0 ? <EmptyState>Carregando solicitações...</EmptyState> : (
